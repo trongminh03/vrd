@@ -7,7 +7,7 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 from src.data.components.vg_dataset import VG_Dataset
 from src.models.components.deformable_detr import DeformableDetrFeatureExtractor, DeformableDetrFeatureExtractorWithAugmentorNoCrop
-from src.utils.utils import collate_fn
+from src.models.util import collate_fn
 
 class VG_DataModule(LightningDataModule):
     """Example of LightningDataModule for MNIST dataset.
