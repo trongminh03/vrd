@@ -57,10 +57,15 @@ from transformers.modeling_outputs import BaseModelOutput
 from transformers.modeling_utils import PretrainedConfig, PreTrainedModel
 from transformers.utils import logging
 
-import model.transform as T
+import pyrootutils
+pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from .load_custom import load_cuda_kernels
-from .util import generalized_box_iou, sigmoid_focal_loss
+import src.models.components.transform as T
+
+# from .load_custom import load_cuda_kernels 
+from src.utils.load_custom import load_cuda_kernels
+# from .util import generalized_box_iou, sigmoid_focal_loss 
+from src.utils.utils import generalized_box_iou, sigmoid_focal_loss
 
 logger = logging.get_logger(__name__)
 

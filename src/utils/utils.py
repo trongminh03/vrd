@@ -120,13 +120,105 @@ def get_metric_value(metric_dict: Dict[str, Any], metric_name: Optional[str]) ->
 
 
 def collate_fn(batch, feature_extractor):
-        pixel_values = [item[0] for item in batch]
-        encoding = feature_extractor.pad_and_create_pixel_mask(
-            pixel_values, return_tensors="pt"
-        )
-        labels = [item[1] for item in batch]
-        batch = {}
-        batch["pixel_values"] = encoding["pixel_values"]
-        batch["pixel_mask"] = encoding["pixel_mask"]
-        batch["labels"] = labels
-        return batch
+    pixel_values = [item[0] for item in batch]
+    encoding = feature_extractor.pad_and_create_pixel_mask(
+        pixel_values, return_tensors="pt"
+    )
+    labels = [item[1] for item in batch]
+    batch = {}
+    batch["pixel_values"] = encoding["pixel_values"]
+    batch["pixel_mask"] = encoding["pixel_mask"]
+    batch["labels"] = labels
+    return batch
+
+import torch
+import torch.nn as nn 
+
+def sigmoid_focal_loss(
+    inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2
+):
+    """
+    Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
+
+    Args:
+        inputs: A float tensor of arbitrary shape.
+                The predictions for each example.
+        targets: A float tensor with the same shape as inputs. Stores the binary
+                 classification label for each element in inputs (0 for the negative class and 1 for the positive
+                 class).
+        alpha: (optional) Weighting factor in range (0,1) to balance
+                positive vs negative examples. Default = -1 (no weighting).
+        gamma: Exponent of the modulating factor (1 - p_t) to
+               balance easy vs hard examples.
+
+    Returns:
+        Loss tensor
+    """
+    prob = inputs.sigmoid()
+    ce_loss = nn.functional.binary_cross_entropy_with_logits(
+        inputs, targets, reduction="none"
+    )
+    p_t = prob * targets + (1 - prob) * (1 - targets)
+    loss = ce_loss * ((1 - p_t) ** gamma)
+
+    if alpha >= 0:
+        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
+        loss = alpha_t * loss
+
+    return loss.mean(1).sum() / num_boxes
+
+
+# below: bounding box utilities taken from https://github.com/facebookresearch/detr/blob/master/util/box_ops.py
+
+
+def box_area(boxes: Tensor) -> Tensor:
+    """
+    Computes the area of a set of bounding boxes, which are specified by its (x1, y1, x2, y2) coordinates.
+
+    Args:
+        boxes (Tensor[N, 4]): boxes for which the area will be computed. They
+            are expected to be in (x1, y1, x2, y2) format with `0 <= x1 < x2` and `0 <= y1 < y2`.
+
+    Returns:
+        area (Tensor[N]): area for each box
+    """
+    boxes = _upcast(boxes)
+    return (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
+
+# modified from torchvision to also return the union
+def box_iou(boxes1, boxes2):
+    area1 = box_area(boxes1)
+    area2 = box_area(boxes2)
+
+    lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
+    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])  # [N,M,2]
+
+    wh = (rb - lt).clamp(min=0)  # [N,M,2]
+    inter = wh[:, :, 0] * wh[:, :, 1]  # [N,M]
+
+    union = area1[:, None] + area2 - inter
+
+    iou = inter / union
+    return iou, union
+
+
+def generalized_box_iou(boxes1, boxes2):
+    """
+    Generalized IoU from https://giou.stanford.edu/. The boxes should be in [x0, y0, x1, y1] (corner) format.
+
+    Returns:
+        a [N, M] pairwise matrix, where N = len(boxes1) and M = len(boxes2)
+    """
+    # degenerate boxes gives inf / nan results
+    # so do an early check
+    assert (boxes1[:, 2:] >= boxes1[:, :2]).all()
+    assert (boxes2[:, 2:] >= boxes2[:, :2]).all()
+    iou, union = box_iou(boxes1, boxes2)
+
+    lt = torch.min(boxes1[:, None, :2], boxes2[:, :2])
+    rb = torch.max(boxes1[:, None, 2:], boxes2[:, 2:])
+
+    wh = (rb - lt).clamp(min=0)  # [N,M,2]
+    area = wh[:, :, 0] * wh[:, :, 1]
+
+    return iou - (area - union) / area
