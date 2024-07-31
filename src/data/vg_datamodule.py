@@ -206,12 +206,42 @@ if __name__ == "__main__":
     #             pipeline=pipeline["train"],
     #         ) 
 
-    data_module = VG_DataModule(
-        data_folder='/data/hpc/trongminh/vg', 
-        feature_extractor=None,
+    # data_module = VG_DataModule(
+    #     data_folder='/data/hpc/trongminh/vg', 
+    #     split="train",
+    #     num_object_queries=100, 
+    #     debug=False
+    # ) 
+
+    feature_extractor_train = (
+        DeformableDetrFeatureExtractorWithAugmentorNoCrop.from_pretrained(
+            "SenseTime/deformable-detr", size=800, max_size=1333
+        )
+    )
+
+    feature_extractor = DeformableDetrFeatureExtractor.from_pretrained(
+        "SenseTime/deformable-detr", size=800, max_size=1333
+    )
+
+    train_dataset = VG_Dataset(
+        data_folder='/home/jovyan/SpeaQ/data/datasets/VG',
+        feature_extractor=feature_extractor_train,
         split="train",
         num_object_queries=100, 
         debug=False
+    )
+
+    val_dataset = VG_Dataset(
+        data_folder='/home/jovyan/SpeaQ/data/datasets/VG',
+        feature_extractor=feature_extractor,
+        split="val",
+        num_object_queries=100,
+    )
+    test_dataset = VG_Dataset(
+        data_folder='/home/jovyan/SpeaQ/data/datasets/VG',
+        feature_extractor=feature_extractor,
+        split="test",
+        num_object_queries=100,
     )
     
     import IPython; IPython.embed()
