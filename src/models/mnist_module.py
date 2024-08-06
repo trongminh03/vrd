@@ -6,6 +6,13 @@ from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
 
 
+from src.models.components.deformable_detr import (
+    DeformableDetrConfig,
+    DeformableDetrFeatureExtractor,
+    DeformableDetrFeatureExtractorWithAugmentorNoCrop,
+)
+from components.egtr import DetrForSceneGraphGeneration
+
 class MNISTLitModule(LightningModule):
     """Example of a `LightningModule` for MNIST classification.
 
@@ -45,6 +52,17 @@ class MNISTLitModule(LightningModule):
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler,
         compile: bool,
+        from_scratch: bool, 
+        id2label,
+        rel_categories,
+        multiple_sgg_evaluator,
+        multiple_sgg_evaluator_list,
+        single_sgg_evaluator,
+        single_sgg_evaluator_list,
+        coco_evaluator,
+        feature_extractor,
+        fg_matrix,
+        num_classes=150
     ) -> None:
         """Initialize a `MNISTLitModule`.
 
@@ -58,15 +76,52 @@ class MNISTLitModule(LightningModule):
         # also ensures init params will be stored in ckpt
         self.save_hyperparameters(logger=False)
 
+        self.from_scratch = from_scratch
         self.net = net
+        print("-----self.net.config------", self.net.config)
+
+        # if self.from_scratch:
+        #     assert self.net.backbone_dirpath
+        #     # self.model = DetrForSceneGraphGeneration(config=config, fg_matrix=fg_matrix)
+        #     # self.model.model.backbone.load_state_dict(
+        #     #     torch.load(f"{backbone_dirpath}/{config.backbone}.pt")
+        #     # )
+        #     self.net.model.backbone.load_state_dict(
+        #         torch.load(f"{self.net.backbone_dirpath}/{self.net.backbone}.pt")
+        #     )
+        #     self.initialized_keys = []
+        # else:
+        #     self.model, load_info = DetrForSceneGraphGeneration.from_pretrained(
+        #         pretrained,
+        #         config=config,
+        #         ignore_mismatched_sizes=True,
+        #         output_loading_info=True,
+        #         fg_matrix=fg_matrix,
+        #     )
+        #     self.initialized_keys = load_info["missing_keys"] + [
+        #         _key for _key, _, _ in load_info["mismatched_keys"]
+        #     ]
+
+        # if main_trained:
+        #     state_dict = torch.load(main_trained, map_location="cpu")["state_dict"]
+        #     for k in list(state_dict.keys()):
+        #         state_dict[k[6:]] = state_dict.pop(k)  # "model."
+        #     self.model.load_state_dict(state_dict, strict=False)
+
+        self.multiple_sgg_evaluator = multiple_sgg_evaluator 
+        self.multiple_sgg_evaluator_list = multiple_sgg_evaluator_list 
+        self.single_sgg_evaluator = single_sgg_evaluator
+        self.single_sgg_evaluator_list = single_sgg_evaluator_list
+        self.coco_evaluator = coco_evaluator
+        self.feature_extractor = feature_extractor
 
         # loss function
         self.criterion = torch.nn.CrossEntropyLoss()
 
         # metric objects for calculating and averaging accuracy across batches
-        self.train_acc = Accuracy(task="multiclass", num_classes=10)
-        self.val_acc = Accuracy(task="multiclass", num_classes=10)
-        self.test_acc = Accuracy(task="multiclass", num_classes=10)
+        self.train_acc = Accuracy(task="multiclass", num_classes=num_classes)
+        self.val_acc = Accuracy(task="multiclass", num_classes=num_classes)
+        self.test_acc = Accuracy(task="multiclass", num_classes=num_classes)
 
         # for averaging loss across batches
         self.train_loss = MeanMetric()

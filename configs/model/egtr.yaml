@@ -1,0 +1,49 @@
+_target_: src.models.mnist_module.MNISTLitModule
+
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 2e-6
+  weight_decay: 1e-4
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+from_scratch: False # Placeholder only, use when running command !!!! (+model.from_scratch=False)
+
+net:
+  _target_: src.models.components.egtr.DetrForSceneGraphGeneration
+  architecture: "SenseTime/deformable-detr"
+  backbone_dirpath: ""
+  auxiliary_loss: False
+  pretrained: ""
+  main_trained: ""
+  from_scratch: False
+  # id2label,
+  rel_loss_coefficient: 15.0
+  smoothing: 1e-14
+  rel_sample_negatives: 80
+  rel_sample_nonmatching: 80
+  # rel_categories
+  multiple_sgg_evaluator,
+  multiple_sgg_evaluator_list,
+  single_sgg_evaluator,
+  single_sgg_evaluator_list,
+  coco_evaluator,
+  # feature_extractor,
+  num_queries: 200
+  ce_loss_coefficient: 2.0
+  rel_sample_negatives_largest: True
+  rel_sample_nonmatching_largest: True
+  use_freq_bias: True
+  # fg_matrix,
+  use_log_softmax: False
+  freq_bias_eps: 1e-12
+  connectivity_loss_coefficient: 30.0
+  logit_adjustment: False
+  logit_adj_tau: 0.3
+# compile model for faster training with pytorch 2.0
+compile: false
