@@ -42,7 +42,10 @@ class VG_DataModule(LightningDataModule):
         data_folder: str = '/data/hpc/trongminh/vg', 
         split: str = "train",
         num_object_queries=100, 
-        debug=False
+        debug=False, 
+        batch_size: int = 4, 
+        num_workers: int = 4,
+        pin_memory: bool = True,
     ):
         super().__init__()
         self.data_folder = data_folder 
@@ -64,9 +67,11 @@ class VG_DataModule(LightningDataModule):
             )
         )
 
-        self.data_train: Optional[Dataset] = None
-        self.data_val: Optional[Dataset] = None
-        self.data_test: Optional[Dataset] = None
+        self.train_dataset: Optional[Dataset] = None
+        self.val_dataset: Optional[Dataset] = None
+        self.test_dataset: Optional[Dataset] = None
+
+        self.setup()
 
     @property
     def num_classes(self):
@@ -82,7 +87,7 @@ class VG_DataModule(LightningDataModule):
         careful not to execute things like random split twice!
         """
         # load and split datasets only if not loaded already
-        if not self.data_train and not self.data_val and not self.data_test:
+        if not self.train_dataset and not self.val_dataset and not self.test_dataset:
             self.train_dataset = VG_Dataset(
                 data_folder=self.data_folder,
                 feature_extractor=self.feature_extractor_train,
@@ -224,21 +229,31 @@ if __name__ == "__main__":
     )
 
     train_dataset = VG_Dataset(
-        data_folder='/home/jovyan/SpeaQ/data/datasets/VG',
+        data_folder='/data1.local/vinhpt/trongminh/vrd/data/visual_genome',
         feature_extractor=feature_extractor_train,
         split="train",
         num_object_queries=100, 
         debug=False
     )
 
+    train_dataloader = DataLoader(
+        train_dataset,
+        collate_fn=lambda x: collate_fn(x, feature_extractor),
+        batch_size=4,
+        pin_memory=True,
+        num_workers=4,
+        persistent_workers=True,
+        shuffle=True,
+    )
+
     val_dataset = VG_Dataset(
-        data_folder='/home/jovyan/SpeaQ/data/datasets/VG',
+        data_folder='/data1.local/vinhpt/trongminh/vrd/data/visual_genome',
         feature_extractor=feature_extractor,
         split="val",
         num_object_queries=100,
     )
     test_dataset = VG_Dataset(
-        data_folder='/home/jovyan/SpeaQ/data/datasets/VG',
+        data_folder='/data1.local/vinhpt/trongminh/vrd/data/visual_genome',
         feature_extractor=feature_extractor,
         split="test",
         num_object_queries=100,

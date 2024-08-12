@@ -36,6 +36,8 @@ from src.utils import (
     task_wrapper,
 )
 
+from src.data.components.vg_dataset import vg_get_statistics
+
 log = RankedLogger(__name__, rank_zero_only=True)
 
 
@@ -56,6 +58,27 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
+
+    train_dataset = datamodule.train_dataset
+    # config model
+    cats = train_dataset.coco.cats
+    id2label = {k - 1: v["name"] for k, v in cats.items()}
+    fg_matrix = vg_get_statistics(train_dataset, must_overlap=True)
+    rel_categories = train_dataset.rel_categories
+
+    # Test purpose only
+    # fg_matrix = "fg_matrix"
+    # id2label = "id2label"
+    # rel_categories = "rel_categories"
+
+    import IPython; IPython.embed()
+
+    fg_matrix_list = fg_matrix.tolist()
+
+    cfg.model.net.id2label = id2label
+    cfg.model.net.rel_categories = rel_categories
+    cfg.model.net.fg_matrix = fg_matrix_list
+    print("config model", cfg.model)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
@@ -81,6 +104,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     if logger:
         log.info("Logging hyperparameters!")
         log_hyperparameters(object_dict)
+
+    print("model:", model)
 
     if cfg.get("train"):
         log.info("Starting training!")
@@ -115,6 +140,8 @@ def main(cfg: DictConfig) -> Optional[float]:
     # apply extra utilities
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)
     extras(cfg)
+
+    print("cfg:", cfg)
 
     # train the model
     metric_dict, _ = train(cfg)

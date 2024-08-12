@@ -135,32 +135,34 @@ class DetrForSceneGraphGeneration(DeformableDetrPreTrainedModel):
                 rel_sample_negatives,
                 rel_sample_nonmatching,
                 rel_categories,
-                multiple_sgg_evaluator,
-                multiple_sgg_evaluator_list,
-                single_sgg_evaluator,
-                single_sgg_evaluator_list,
-                coco_evaluator,
-                feature_extractor,
-                num_queries,
-                ce_loss_coefficient,
-                rel_sample_negatives_largest,
-                rel_sample_nonmatching_largest,
-                use_freq_bias,
-                fg_matrix,
-                use_log_softmax,
-                freq_bias_eps,
-                connectivity_loss_coefficient,
-                logit_adjustment,
-                logit_adj_tau,             
+                # multiple_sgg_evaluator,
+                # multiple_sgg_evaluator_list,
+                # single_sgg_evaluator,
+                # single_sgg_evaluator_list,
+                # coco_evaluator,
+                # feature_extractor,
+                num_queries: int = 200,
+                ce_loss_coefficient=2.0,
+                rel_sample_negatives_largest=True,
+                rel_sample_nonmatching_largest=True,
+                use_freq_bias=True,
+                fg_matrix=None,
+                use_log_softmax=False,
+                freq_bias_eps=1e-12,
+                connectivity_loss_coefficient=30.0,
+                logit_adjustment=False,
+                logit_adj_tau=0.3,             
                 **kwargs):
-        super(DetrForSceneGraphGeneration, self).__init__()
+        # super(DetrForSceneGraphGeneration, self).__init__()
 
         config = DeformableDetrConfig.from_pretrained(pretrained)
         config.architecture = architecture
         config.auxiliary_loss = auxiliary_loss
         config.from_scratch = from_scratch
-        config.num_rel_labels = len(rel_categories)
-        config.num_labels = max(id2label.keys()) + 1
+        # config.num_rel_labels = len(rel_categories)
+        config.num_rel_labels = 150
+        # config.num_labels = max(id2label.keys()) + 1 
+        config.num_labels = 91
         config.num_queries = num_queries
         config.rel_loss_coefficient = rel_loss_coefficient
         config.smoothing = smoothing
@@ -178,6 +180,8 @@ class DetrForSceneGraphGeneration(DeformableDetrPreTrainedModel):
 
         config.logit_adjustment = logit_adjustment
         config.logit_adj_tau = logit_adj_tau
+
+        super(DetrForSceneGraphGeneration, self).__init__(config)
 
         self.model = DeformableDetrModel(config)
 
