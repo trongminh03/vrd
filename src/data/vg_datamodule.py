@@ -3,7 +3,7 @@ pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 from typing import Any, Dict, Optional, Tuple
 import torch
 import hydra
-from pytorch_lightning import LightningDataModule
+from lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 from src.data.components.vg_dataset import VG_Dataset
 from src.models.components.deformable_detr import DeformableDetrFeatureExtractor, DeformableDetrFeatureExtractorWithAugmentorNoCrop
@@ -107,7 +107,7 @@ class VG_DataModule(LightningDataModule):
                 split=self.split,
                 num_object_queries=self.num_object_queries,
             )
-            self.train_dataloader = DataLoader(
+            self.train_dataloader_object = DataLoader(
                 self.train_dataset,
                 collate_fn=lambda x: collate_fn(x, self.feature_extractor),
                 batch_size=self.hparams.batch_size,
@@ -116,7 +116,7 @@ class VG_DataModule(LightningDataModule):
                 persistent_workers=True,
                 shuffle=True,
             )
-            self.val_dataloader = DataLoader(
+            self.val_dataloader_object = DataLoader(
                 self.val_dataset,
                 collate_fn=lambda x: collate_fn(x, self.feature_extractor),
                 batch_size=self.hparams.batch_size,
@@ -125,7 +125,7 @@ class VG_DataModule(LightningDataModule):
                 persistent_workers=True,
                 shuffle=False
             )
-            self.test_dataloader = DataLoader(
+            self.test_dataloader_object = DataLoader(
                 self.test_dataset,
                 collate_fn=lambda x: collate_fn(x, self.feature_extractor),
                 batch_size=1,
@@ -136,13 +136,13 @@ class VG_DataModule(LightningDataModule):
             )
             
     def train_dataloader(self):
-        return self.train_dataloader
+        return self.train_dataloader_object
 
     def val_dataloader(self):
-        return self.val_dataloader
+        return self.val_dataloader_object
 
     def test_dataloader(self):
-        return self.test_dataloader
+        return self.test_dataloader_object
 
     def teardown(self, stage: Optional[str] = None):
         """Clean up after fit or test."""
@@ -158,65 +158,6 @@ class VG_DataModule(LightningDataModule):
 
 
 if __name__ == "__main__":
-    # from components.transform import UniformSampleFrames, PoseDecode, PoseCompact, Resize, RandomResizedCrop, CenterCrop, Flip, GeneratePoseTarget, FormatShape, PackActionInputs
-    # train_pipeline = [
-    #     UniformSampleFrames(clip_len=48),
-    #     PoseDecode(),
-    #     PoseCompact(hw_ratio= 1., allow_imgpad= True),
-    #     Resize(scale=[-1, 64]),
-    #     RandomResizedCrop(area_range= [0.56, 1.0]),
-    #     Resize(scale=[56, 56], keep_ratio=False),
-    #     Flip(flip_ratio=0.5, 
-    #          left_kp=[1, 3, 5, 7, 9, 11, 13, 15], 
-    #          right_kp=[2, 4, 6, 8, 10, 12, 14, 16]),
-    #     GeneratePoseTarget(sigma=0.6, use_score=True, with_kp=True, with_limb=False),
-    #     FormatShape(input_format="NCTHW_Heatmap", collapse=True),
-    #     PackActionInputs(),
-    # ]
-    # val_pipeline = [
-    #     UniformSampleFrames(clip_len=48, num_clips=1, test_mode=True),
-    #     PoseDecode(),
-    #     PoseCompact(hw_ratio= 1., allow_imgpad= True),
-    #     Resize(scale=[-1, 64]),
-    #     CenterCrop(crop_size=64),
-    #     GeneratePoseTarget(sigma=0.6, use_score=True, with_kp=True, with_limb=False),
-    #     FormatShape(input_format="NCTHW_Heatmap", collapse=True),
-    #     PackActionInputs(),
-    # ]
-    # test_pipeline = [
-    #     UniformSampleFrames(clip_len=48, num_clips=10, test_mode=True),
-    #     PoseDecode(),
-    #     PoseCompact(hw_ratio= 1., allow_imgpad= True),
-    #     Resize(scale=[-1, 64]),
-    #     CenterCrop(crop_size=64),
-    #     GeneratePoseTarget(sigma=0.6, use_score=True, with_kp=True, 
-    #                        with_limb=False, double= True, 
-    #                        left_kp=[1, 3, 5, 7, 9, 11, 13, 15], 
-    #                        right_kp=[2, 4, 6, 8, 10, 12, 14, 16]),
-    #     FormatShape(input_format="NCTHW_Heatmap", collapse=True),
-    #     PackActionInputs(),
-    # ]
-    # pipeline = {
-    #     "train": train_pipeline,
-    #     "val": val_pipeline,
-    #     "test": test_pipeline
-    # }
-    
-    # # data_module = NTU_Skeleton_DataModule(ann_file="/data1.local/vinhpt/dupt/self_learning/data/ntu60_2d.pkl", 
-    # #                                       pipeline_transform=pipeline)
-    # dataset = NTU_Skeleton_Dataset(
-    #             ann_file="./data/ntu60_2d.pkl",
-    #             split_mode="cross_subject",
-    #             train=True,
-    #             pipeline=pipeline["train"],
-    #         ) 
-
-    # data_module = VG_DataModule(
-    #     data_folder='/data/hpc/trongminh/vg', 
-    #     split="train",
-    #     num_object_queries=100, 
-    #     debug=False
-    # ) 
 
     feature_extractor_train = (
         DeformableDetrFeatureExtractorWithAugmentorNoCrop.from_pretrained(
@@ -229,7 +170,7 @@ if __name__ == "__main__":
     )
 
     train_dataset = VG_Dataset(
-        data_folder='/data1.local/vinhpt/trongminh/vrd/data/visual_genome',
+        data_folder='/data/hpc/trongminh/visual_genome',
         feature_extractor=feature_extractor_train,
         split="train",
         num_object_queries=100, 
@@ -247,13 +188,13 @@ if __name__ == "__main__":
     )
 
     val_dataset = VG_Dataset(
-        data_folder='/data1.local/vinhpt/trongminh/vrd/data/visual_genome',
+        data_folder='/data/hpc/trongminh/visual_genome',
         feature_extractor=feature_extractor,
         split="val",
         num_object_queries=100,
     )
     test_dataset = VG_Dataset(
-        data_folder='/data1.local/vinhpt/trongminh/vrd/data/visual_genome',
+        data_folder='/data/hpc/trongminh/visual_genome',
         feature_extractor=feature_extractor,
         split="test",
         num_object_queries=100,

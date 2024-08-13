@@ -28,6 +28,7 @@ import math
 import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+import json
 
 import torch
 import torch.nn.functional as F
@@ -159,10 +160,8 @@ class DetrForSceneGraphGeneration(DeformableDetrPreTrainedModel):
         config.architecture = architecture
         config.auxiliary_loss = auxiliary_loss
         config.from_scratch = from_scratch
-        # config.num_rel_labels = len(rel_categories)
-        config.num_rel_labels = 150
-        # config.num_labels = max(id2label.keys()) + 1 
-        config.num_labels = 91
+        config.num_rel_labels = len(rel_categories)
+        config.num_labels = max(id2label.keys()) + 1 
         config.num_queries = num_queries
         config.rel_loss_coefficient = rel_loss_coefficient
         config.smoothing = smoothing
@@ -180,8 +179,9 @@ class DetrForSceneGraphGeneration(DeformableDetrPreTrainedModel):
 
         config.logit_adjustment = logit_adjustment
         config.logit_adj_tau = logit_adj_tau
+        self.fg_matrix = json.loads(fg_matrix)
 
-        super(DetrForSceneGraphGeneration, self).__init__(config)
+        super(DetrForSceneGraphGeneration, self).__init__(config, fg_matrix=self.fg_matrix)
 
         self.model = DeformableDetrModel(config)
 

@@ -53,6 +53,7 @@ class EGTRLitModule(LightningModule):
         scheduler: torch.optim.lr_scheduler,
         compile: bool,
         from_scratch: bool, 
+        log_print=False,
         # id2label,
         # rel_categories,
         # multiple_sgg_evaluator,
@@ -64,7 +65,7 @@ class EGTRLitModule(LightningModule):
         # fg_matrix,
         num_classes=150
     ) -> None:
-        """Initialize a `MNISTLitModule`.
+        """Initialize a `EGTRLitModule`.
 
         :param net: The model to train.
         :param optimizer: The optimizer to use for training.
@@ -77,6 +78,7 @@ class EGTRLitModule(LightningModule):
         self.save_hyperparameters(logger=False)
 
         self.from_scratch = from_scratch
+        self.log_print = log_print
         self.net = net
 
         print("-----self.net.config------", self.net.config)
@@ -148,6 +150,9 @@ class EGTRLitModule(LightningModule):
         self.val_acc.reset()
         self.val_acc_best.reset()
 
+        if self.log_print:
+            print("START TRAINING")
+
     def model_step(
         self, batch: Tuple[torch.Tensor, torch.Tensor]
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -213,6 +218,8 @@ class EGTRLitModule(LightningModule):
         # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object
         # otherwise metric would be reset by lightning after each epoch
         self.log("val/acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
+        if self.log_print:
+            print(f"Epoch {self.current_epoch} end, Train/loss: {round(float(self.train_loss.compute()), 3)}, Train/acc: {round(float(self.train_acc.compute()), 4)}, Val/loss: {round(float(self.val_loss.compute()), 3)}, Val/acc: {round(float(self.val_acc.compute()), 4)}, Val/acc_best: {round(float(self.val_acc_best.compute()), 4)}")
 
     def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
         """Perform a single test step on a batch of data from the test set.

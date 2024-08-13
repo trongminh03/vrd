@@ -20,7 +20,7 @@ net:
   architecture: "SenseTime/deformable-detr"
   backbone_dirpath: ""
   auxiliary_loss: False
-  pretrained: ""
+  pretrained: "/work/hpc/trongminh/vrd/detection_models/pretrained_detr__SenseTime__deformable-detr/batch__32__epochs__150_50__lr__1e-05_0.0001__visual_genome__finetune/version_0"
   main_trained: ""
   from_scratch: False
   id2label: 
