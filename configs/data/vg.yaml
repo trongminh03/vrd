@@ -1,5 +1,5 @@
 _target_: src.data.vg_datamodule.VG_DataModule
-data_folder: '/data1.local/vinhpt/trongminh/vrd/data/visual_genome'
+data_folder: '/data/hpc/trongminh/visual_genome'
 split: 'train'
 num_object_queries: 100
 debug: False

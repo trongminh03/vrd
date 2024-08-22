@@ -65,13 +65,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     # config model param
     train_dataset = datamodule.train_dataset
-    cats = datamodule.train_dataset.coco.cats
+    cats = train_dataset.coco.cats
     id2label = {k - 1: v["name"] for k, v in cats.items()}
     
-    fg_matrix = vg_get_statistics(datamodule.train_dataset, must_overlap=True)
+    fg_matrix = vg_get_statistics(train_dataset, must_overlap=True)
     fg_matrix_json = json.dumps(fg_matrix.tolist())
     
-    rel_categories = datamodule.train_dataset.rel_categories
+    rel_categories = train_dataset.rel_categories
 
     # update model config
     cfg.model.net.id2label = id2label

@@ -184,6 +184,7 @@ class DetrForSceneGraphGeneration(DeformableDetrPreTrainedModel):
         super(DetrForSceneGraphGeneration, self).__init__(config, fg_matrix=self.fg_matrix)
 
         self.model = DeformableDetrModel(config)
+        self.config = config
 
         # Detection heads on top
         self.class_embed = nn.Linear(config.d_model, config.num_labels)
@@ -329,6 +330,8 @@ class DetrForSceneGraphGeneration(DeformableDetrPreTrainedModel):
             output_attention_states=output_attention_states,
             return_dict=return_dict,
         )
+
+        # import IPython; IPython.embed()
 
         sequence_output = outputs["last_hidden_state"]
         bsz = sequence_output.size(0)

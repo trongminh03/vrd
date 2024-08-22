@@ -155,3 +155,6 @@ configs/local/default.yaml
 
 # Detection model
 detection_models/
+
+# notebooks
+notebooks/

@@ -80,8 +80,21 @@ class EGTRLitModule(LightningModule):
         self.from_scratch = from_scratch
         self.log_print = log_print
         self.net = net
+        
+        if self.from_scratch == False:
+            # dict = torch.load(self.net.config.pretrained)
+            # import IPython; IPython.embed()
+            self.net, load_info = self.net.from_pretrained(
+                self.net.config.pretrained,
+                config=self.net.config,
+                ignore_mismatched_sizes=True,
+                output_loading_info=True,
+                fg_matrix=self.net.fg_matrix,
+            )
+            self.initialized_keys = load_info["missing_keys"] + [
+                _key for _key, _, _ in load_info["mismatched_keys"]
+            ]
 
-        print("-----self.net.config------", self.net.config)
 
         # if self.from_scratch:
         #     assert self.net.backbone_dirpath
@@ -140,7 +153,11 @@ class EGTRLitModule(LightningModule):
         :param x: A tensor of images.
         :return: A tensor of logits.
         """
-        return self.net(x)
+        pixel_val = x[0] 
+        pixel_mask = x[1]
+        return self.net(pixel_val, pixel_mask, output_attentions=False,
+                        output_attention_states=True,
+                        output_hidden_states=True,)
 
     def on_train_start(self) -> None:
         """Lightning hook that is called when training begins."""
@@ -165,61 +182,101 @@ class EGTRLitModule(LightningModule):
             - A tensor of predictions.
             - A tensor of target labels.
         """
-        x, y = batch
-        logits = self.forward(x)
-        loss = self.criterion(logits, y)
-        preds = torch.argmax(logits, dim=1)
-        return loss, preds, y
+        pixel_val = batch['pixel_values']
+        pixel_mask = batch['pixel_mask']
+        x = (pixel_val, pixel_mask)
+        y = batch['labels']
+        # output = self.forward(x) 
+        # loss = self.criterion(logits, y) 
+        # preds = torch.argmax(logits, dim=1)
+        # return loss, preds, y
+        outputs = self.net(pixel_val, pixel_mask, labels = y, output_attentions=False, output_attention_states=True, output_hidden_states=True)
+        import IPython; IPython.embed()
+        loss = outputs.loss
+        loss_dict = outputs.loss_dict
+        del outputs
+        return loss, loss_dict
 
-    def training_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
-        """Perform a single training step on a batch of data from the training set.
+    # def training_step(
+    #     self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+    # ) -> torch.Tensor:
+    #     """Perform a single training step on a batch of data from the training set.
 
-        :param batch: A batch of data (a tuple) containing the input tensor of images and target
-            labels.
-        :param batch_idx: The index of the current batch.
-        :return: A tensor of losses between model predictions and targets.
-        """
-        loss, preds, targets = self.model_step(batch)
+    #     :param batch: A batch of data (a tuple) containing the input tensor of images and target
+    #         labels.
+    #     :param batch_idx: The index of the current batch.
+    #     :return: A tensor of losses between model predictions and targets.
+    #     """
+    #     loss, preds, targets = self.model_step(batch)
 
-        # update and log metrics
-        self.train_loss(loss)
-        self.train_acc(preds, targets)
-        self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("train/acc", self.train_acc, on_step=False, on_epoch=True, prog_bar=True)
+    #     # update and log metrics
+    #     self.train_loss(loss)
+    #     self.train_acc(preds, targets)
+    #     self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
+    #     self.log("train/acc", self.train_acc, on_step=False, on_epoch=True, prog_bar=True)
 
-        # return loss or backpropagation will fail
+    #     # return loss or backpropagation will fail
+    #     return loss 
+
+    def training_step(self, batch, batch_idx):
+        loss, loss_dict = self.model_step(batch)
+        # logs metrics for each training_step,
+        # and the average across the epoch
+        import IPython; IPython.embed()
+        log_dict = {
+            "step": torch.tensor(self.global_step, dtype=torch.float32),
+            "training_loss": loss.item(),
+        }
+        log_dict.update({f"training_{k}": v.item() for k, v in loss_dict.items()})
+        self.log_dict(log_dict)
+
         return loss
 
     def on_train_epoch_end(self) -> None:
         "Lightning hook that is called when a training epoch ends."
         pass
 
-    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
-        """Perform a single validation step on a batch of data from the validation set.
+    # def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
+    #     """Perform a single validation step on a batch of data from the validation set.
 
-        :param batch: A batch of data (a tuple) containing the input tensor of images and target
-            labels.
-        :param batch_idx: The index of the current batch.
-        """
-        loss, preds, targets = self.model_step(batch)
+    #     :param batch: A batch of data (a tuple) containing the input tensor of images and target
+    #         labels.
+    #     :param batch_idx: The index of the current batch.
+    #     """
+    #     loss, preds, targets = self.model_step(batch)
 
-        # update and log metrics
-        self.val_loss(loss)
-        self.val_acc(preds, targets)
-        self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("val/acc", self.val_acc, on_step=False, on_epoch=True, prog_bar=True)
+    #     # update and log metrics
+    #     self.val_loss(loss)
+    #     self.val_acc(preds, targets)
+    #     self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
+    #     self.log("val/acc", self.val_acc, on_step=False, on_epoch=True, prog_bar=True)
+ 
+    def validation_step(self, batch, batch_idx):
+        loss, loss_dict = self.model_step(batch)
+        loss_dict["loss"] = loss
+        del loss
+        return loss_dict
 
-    def on_validation_epoch_end(self) -> None:
-        "Lightning hook that is called when a validation epoch ends."
-        acc = self.val_acc.compute()  # get current val acc
-        self.val_acc_best(acc)  # update best so far val acc
-        # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object
-        # otherwise metric would be reset by lightning after each epoch
-        self.log("val/acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
-        if self.log_print:
-            print(f"Epoch {self.current_epoch} end, Train/loss: {round(float(self.train_loss.compute()), 3)}, Train/acc: {round(float(self.train_acc.compute()), 4)}, Val/loss: {round(float(self.val_loss.compute()), 3)}, Val/acc: {round(float(self.val_acc.compute()), 4)}, Val/acc_best: {round(float(self.val_acc_best.compute()), 4)}")
+    # def on_validation_epoch_end(self) -> None:
+    #     "Lightning hook that is called when a validation epoch ends."
+    #     acc = self.val_acc.compute()  # get current val acc
+    #     self.val_acc_best(acc)  # update best so far val acc
+    #     # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object
+    #     # otherwise metric would be reset by lightning after each epoch
+    #     self.log("val/acc_best", self.val_acc_best.compute(), sync_dist=True, prog_bar=True)
+    #     if self.log_print:
+    #         print(f"Epoch {self.current_epoch} end, Train/loss: {round(float(self.train_loss.compute()), 3)}, Train/acc: {round(float(self.train_acc.compute()), 4)}, Val/loss: {round(float(self.val_loss.compute()), 3)}, Val/acc: {round(float(self.val_acc.compute()), 4)}, Val/acc_best: {round(float(self.val_acc_best.compute()), 4)}")
+
+    def on_validation_epoch_end(self, outputs):
+        log_dict = {
+            "step": torch.tensor(self.global_step, dtype=torch.float32),
+            "epoch": torch.tensor(self.current_epoch, dtype=torch.float32),
+        }
+        for k in outputs[0].keys():
+            log_dict[f"validation_" + k] = (
+                torch.stack([x[k] for x in outputs]).mean().item()
+            )
+        self.log_dict(log_dict, on_epoch=True)
 
     def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
         """Perform a single test step on a batch of data from the test set.
