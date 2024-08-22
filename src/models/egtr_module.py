@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Any, Dict, Tuple
 
 import torch
@@ -54,6 +55,7 @@ class EGTRLitModule(LightningModule):
         compile: bool,
         from_scratch: bool, 
         log_print=False,
+        config_params=None,
         # id2label,
         # rel_categories,
         # multiple_sgg_evaluator,
@@ -79,21 +81,37 @@ class EGTRLitModule(LightningModule):
 
         self.from_scratch = from_scratch
         self.log_print = log_print
-        self.net = net
+        # self.net = net
+
+        self.config = DeformableDetrConfig.from_pretrained(config_params.pretrained)
+        for k, v in config_params.items():
+            setattr(self.config, k, v)
         
-        if self.from_scratch == False:
-            # dict = torch.load(self.net.config.pretrained)
-            # import IPython; IPython.embed()
-            self.net, load_info = self.net.from_pretrained(
-                self.net.config.pretrained,
-                config=self.net.config,
-                ignore_mismatched_sizes=True,
-                output_loading_info=True,
-                fg_matrix=self.net.fg_matrix,
-            )
-            self.initialized_keys = load_info["missing_keys"] + [
-                _key for _key, _, _ in load_info["mismatched_keys"]
-            ]
+        self.config.num_rel_labels = len(self.config.rel_categories)
+        self.config.num_labels = max(self.config.id2label.keys()) + 1
+
+        self.net = net(config=self.config)
+
+        import IPython; IPython.embed()
+
+        # import IPython; IPython.embed()
+        # self.net = net(self.config)
+        
+        
+        
+        # if self.from_scratch == False:
+        #     # dict = torch.load(self.net.config.pretrained)
+        #     # import IPython; IPython.embed()
+        #     self.net, load_info = self.net.from_pretrained(
+        #         self.net.config.pretrained,
+        #         config=self.net.config,
+        #         ignore_mismatched_sizes=True,
+        #         output_loading_info=True,
+        #         fg_matrix=self.net.fg_matrix,
+        #     )
+        #     self.initialized_keys = load_info["missing_keys"] + [
+        #         _key for _key, _, _ in load_info["mismatched_keys"]
+        #     ]
 
 
         # if self.from_scratch:
@@ -191,7 +209,7 @@ class EGTRLitModule(LightningModule):
         # preds = torch.argmax(logits, dim=1)
         # return loss, preds, y
         outputs = self.net(pixel_val, pixel_mask, labels = y, output_attentions=False, output_attention_states=True, output_hidden_states=True)
-        import IPython; IPython.embed()
+        # import IPython; IPython.embed()
         loss = outputs.loss
         loss_dict = outputs.loss_dict
         del outputs
@@ -222,7 +240,7 @@ class EGTRLitModule(LightningModule):
         loss, loss_dict = self.model_step(batch)
         # logs metrics for each training_step,
         # and the average across the epoch
-        import IPython; IPython.embed()
+        # import IPython; IPython.embed()
         log_dict = {
             "step": torch.tensor(self.global_step, dtype=torch.float32),
             "training_loss": loss.item(),

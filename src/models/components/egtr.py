@@ -123,63 +123,59 @@ def _get_clones(module, N):
 
 
 class DetrForSceneGraphGeneration(DeformableDetrPreTrainedModel):
-    def __init__(self,
-                architecture,
-                backbone_dirpath,
-                auxiliary_loss,
-                pretrained,
-                main_trained,
-                from_scratch,
-                id2label,
-                rel_loss_coefficient,
-                smoothing,
-                rel_sample_negatives,
-                rel_sample_nonmatching,
-                rel_categories,
-                # multiple_sgg_evaluator,
-                # multiple_sgg_evaluator_list,
-                # single_sgg_evaluator,
-                # single_sgg_evaluator_list,
-                # coco_evaluator,
-                # feature_extractor,
-                num_queries: int = 200,
-                ce_loss_coefficient=2.0,
-                rel_sample_negatives_largest=True,
-                rel_sample_nonmatching_largest=True,
-                use_freq_bias=True,
-                fg_matrix=None,
-                use_log_softmax=False,
-                freq_bias_eps=1e-12,
-                connectivity_loss_coefficient=30.0,
-                logit_adjustment=False,
-                logit_adj_tau=0.3,             
+    def __init__(self, config, 
+                # architecture,
+                # backbone_dirpath,
+                # auxiliary_loss,
+                # pretrained,
+                # main_trained,
+                # from_scratch,
+                # id2label,
+                # rel_loss_coefficient,
+                # smoothing,
+                # rel_sample_negatives,
+                # rel_sample_nonmatching,
+                # rel_categories,
+                # num_queries: int = 200,
+                # ce_loss_coefficient=2.0,
+                # rel_sample_negatives_largest=True,
+                # rel_sample_nonmatching_largest=True,
+                # use_freq_bias=True,
+                # fg_matrix=None,
+                # use_log_softmax=False,
+                # freq_bias_eps=1e-12,
+                # connectivity_loss_coefficient=30.0,
+                # logit_adjustment=False,
+                # logit_adj_tau=0.3,             
                 **kwargs):
         # super(DetrForSceneGraphGeneration, self).__init__()
 
-        config = DeformableDetrConfig.from_pretrained(pretrained)
-        config.architecture = architecture
-        config.auxiliary_loss = auxiliary_loss
-        config.from_scratch = from_scratch
-        config.num_rel_labels = len(rel_categories)
-        config.num_labels = max(id2label.keys()) + 1 
-        config.num_queries = num_queries
-        config.rel_loss_coefficient = rel_loss_coefficient
-        config.smoothing = smoothing
-        config.rel_sample_negatives = rel_sample_negatives
-        config.rel_sample_nonmatching = rel_sample_nonmatching
-        config.ce_loss_coefficient = ce_loss_coefficient
-        config.pretrained = pretrained
-        config.rel_sample_negatives_largest = rel_sample_negatives_largest
-        config.rel_sample_nonmatching_largest = rel_sample_nonmatching_largest
+        # config = DeformableDetrConfig.from_pretrained(pretrained)
+        # config.architecture = architecture
+        # config.auxiliary_loss = auxiliary_loss
+        # config.from_scratch = from_scratch
+        # config.num_rel_labels = len(rel_categories)
+        # config.num_labels = max(id2label.keys()) + 1 
+        # config.num_queries = num_queries
+        # config.rel_loss_coefficient = rel_loss_coefficient
+        # config.smoothing = smoothing
+        # config.rel_sample_negatives = rel_sample_negatives
+        # config.rel_sample_nonmatching = rel_sample_nonmatching
+        # config.ce_loss_coefficient = ce_loss_coefficient
+        # config.pretrained = pretrained
+        # config.rel_sample_negatives_largest = rel_sample_negatives_largest
+        # config.rel_sample_nonmatching_largest = rel_sample_nonmatching_largest
 
-        config.connectivity_loss_coefficient = connectivity_loss_coefficient
-        config.use_freq_bias = use_freq_bias
-        config.use_log_softmax = use_log_softmax
-        config.freq_bias_eps = freq_bias_eps
+        # config.connectivity_loss_coefficient = connectivity_loss_coefficient
+        # config.use_freq_bias = use_freq_bias
+        # config.use_log_softmax = use_log_softmax
+        # config.freq_bias_eps = freq_bias_eps
 
-        config.logit_adjustment = logit_adjustment
-        config.logit_adj_tau = logit_adj_tau
-        self.fg_matrix = json.loads(fg_matrix)
+        # config.logit_adjustment = logit_adjustment
+        # config.logit_adj_tau = logit_adj_tau
+        # self.fg_matrix = json.loads(fg_matrix)
+
+        self.fg_matrix = json.loads(config.fg_matrix)
 
         super(DetrForSceneGraphGeneration, self).__init__(config, fg_matrix=self.fg_matrix)
 

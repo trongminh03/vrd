@@ -17,6 +17,9 @@ from_scratch: False # Placeholder only, use when running command !!!! (+model.fr
 
 net:
   _target_: src.models.components.egtr.DetrForSceneGraphGeneration
+  _partial_: true
+
+config_params: 
   architecture: "SenseTime/deformable-detr"
   backbone_dirpath: ""
   auxiliary_loss: False
@@ -31,12 +34,6 @@ net:
   rel_sample_nonmatching: 80
   rel_categories: 
     _partial_: True
-  # multiple_sgg_evaluator,
-  # multiple_sgg_evaluator_list,
-  # single_sgg_evaluator,
-  # single_sgg_evaluator_list,
-  # coco_evaluator,
-  # feature_extractor,
   num_queries: 200
   ce_loss_coefficient: 2.0
   rel_sample_negatives_largest: True
@@ -49,5 +46,6 @@ net:
   connectivity_loss_coefficient: 30.0
   logit_adjustment: False
   logit_adj_tau: 0.3
+
 # compile model for faster training with pytorch 2.0
 compile: false
