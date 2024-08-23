@@ -28,7 +28,6 @@ import math
 import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
-import json
 
 import torch
 import torch.nn.functional as F
@@ -175,9 +174,7 @@ class DetrForSceneGraphGeneration(DeformableDetrPreTrainedModel):
         # config.logit_adj_tau = logit_adj_tau
         # self.fg_matrix = json.loads(fg_matrix)
 
-        self.fg_matrix = json.loads(config.fg_matrix)
-
-        super(DetrForSceneGraphGeneration, self).__init__(config, fg_matrix=self.fg_matrix)
+        super(DetrForSceneGraphGeneration, self).__init__(config)
 
         self.model = DeformableDetrModel(config)
         self.config = config

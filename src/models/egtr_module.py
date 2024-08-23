@@ -1,4 +1,6 @@
 from functools import partial
+import json
+import numpy as np
 from typing import Any, Dict, Tuple
 
 import torch
@@ -81,8 +83,8 @@ class EGTRLitModule(LightningModule):
 
         self.from_scratch = from_scratch
         self.log_print = log_print
-        # self.net = net
 
+        # Load config
         self.config = DeformableDetrConfig.from_pretrained(config_params.pretrained)
         for k, v in config_params.items():
             setattr(self.config, k, v)
@@ -90,51 +92,27 @@ class EGTRLitModule(LightningModule):
         self.config.num_rel_labels = len(self.config.rel_categories)
         self.config.num_labels = max(self.config.id2label.keys()) + 1
 
-        self.net = net(config=self.config)
+        fg_matrix = np.array(json.loads(self.config.fg_matrix))
 
-        import IPython; IPython.embed()
+        if self.from_scratch: 
+            self.net = net(config=self.config, fg_matrix=fg_matrix)
+            self.net.model.backbone.load_state_dict(
+                torch.load(f"{self.config.backbone_dirpath}/{self.config.backbone}.pt")
+            )
+            self.initialized_keys = []
+        else: 
+            net = net(config=self.config)
+            self.net, load_info = net.from_pretrained(
+                self.config.pretrained,
+                config=self.config,
+                ignore_mismatched_sizes=True,
+                output_loading_info=True,
+                fg_matrix=fg_matrix,
+            )
 
-        # import IPython; IPython.embed()
-        # self.net = net(self.config)
-        
-        
-        
-        # if self.from_scratch == False:
-        #     # dict = torch.load(self.net.config.pretrained)
-        #     # import IPython; IPython.embed()
-        #     self.net, load_info = self.net.from_pretrained(
-        #         self.net.config.pretrained,
-        #         config=self.net.config,
-        #         ignore_mismatched_sizes=True,
-        #         output_loading_info=True,
-        #         fg_matrix=self.net.fg_matrix,
-        #     )
-        #     self.initialized_keys = load_info["missing_keys"] + [
-        #         _key for _key, _, _ in load_info["mismatched_keys"]
-        #     ]
-
-
-        # if self.from_scratch:
-        #     assert self.net.backbone_dirpath
-        #     # self.model = DetrForSceneGraphGeneration(config=config, fg_matrix=fg_matrix)
-        #     # self.model.model.backbone.load_state_dict(
-        #     #     torch.load(f"{backbone_dirpath}/{config.backbone}.pt")
-        #     # )
-        #     self.net.model.backbone.load_state_dict(
-        #         torch.load(f"{self.net.backbone_dirpath}/{self.net.backbone}.pt")
-        #     )
-        #     self.initialized_keys = []
-        # else:
-        #     self.model, load_info = DetrForSceneGraphGeneration.from_pretrained(
-        #         pretrained,
-        #         config=config,
-        #         ignore_mismatched_sizes=True,
-        #         output_loading_info=True,
-        #         fg_matrix=fg_matrix,
-        #     )
-        #     self.initialized_keys = load_info["missing_keys"] + [
-        #         _key for _key, _, _ in load_info["mismatched_keys"]
-        #     ]
+            self.initialized_keys = load_info["missing_keys"] + [
+                _key for _key, _, _ in load_info["mismatched_keys"]
+            ]
 
         # if main_trained:
         #     state_dict = torch.load(main_trained, map_location="cpu")["state_dict"]
