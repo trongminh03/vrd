@@ -26,5 +26,5 @@ pytest          # tests
 transformers==4.18.0
 pycocotools==2.0.5
 ipython
-numpy==1.26.4
+numpy==2.1.0
 timm
