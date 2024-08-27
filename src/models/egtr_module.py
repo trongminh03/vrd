@@ -1,3 +1,6 @@
+from functools import partial
+import json
+import numpy as np
 from typing import Any, Dict, Tuple
 
 import torch
@@ -54,6 +57,7 @@ class EGTRLitModule(LightningModule):
         compile: bool,
         from_scratch: bool, 
         log_print=False,
+        config_params=None,
         # id2label,
         # rel_categories,
         # multiple_sgg_evaluator,
@@ -79,46 +83,45 @@ class EGTRLitModule(LightningModule):
 
         self.from_scratch = from_scratch
         self.log_print = log_print
-        self.net = net
+
+        # Load config
+        self.config = DeformableDetrConfig.from_pretrained(config_params.pretrained)
+        for k, v in config_params.items():
+            setattr(self.config, k, v)
         
-        if self.from_scratch == False:
-            # dict = torch.load(self.net.config.pretrained)
-            # import IPython; IPython.embed()
-            self.net, load_info = self.net.from_pretrained(
-                self.net.config.pretrained,
-                config=self.net.config,
+        self.config.num_rel_labels = len(self.config.rel_categories)
+        self.config.num_labels = max(self.config.id2label.keys()) + 1
+
+        fg_matrix = np.array(json.loads(self.config.fg_matrix))
+
+        if self.from_scratch: 
+            self.net = net(config=self.config, fg_matrix=fg_matrix)
+            self.net.model.backbone.load_state_dict(
+                torch.load(f"{self.config.backbone_dirpath}/{self.config.backbone}.pt")
+            )
+            self.initialized_keys = []
+        else: 
+            # net = net(config=self.config)
+            # self.net, load_info = net.from_pretrained(
+            #     self.config.pretrained,
+            #     config=self.config,
+            #     ignore_mismatched_sizes=True,
+            #     output_loading_info=True,
+            #     fg_matrix=fg_matrix,
+            # )
+            self.net, load_info = DetrForSceneGraphGeneration.from_pretrained(
+                self.config.pretrained,
+                config=self.config,
                 ignore_mismatched_sizes=True,
                 output_loading_info=True,
-                fg_matrix=self.net.fg_matrix,
+                fg_matrix=fg_matrix,
             )
+
             self.initialized_keys = load_info["missing_keys"] + [
                 _key for _key, _, _ in load_info["mismatched_keys"]
             ]
 
-
-        # if self.from_scratch:
-        #     assert self.net.backbone_dirpath
-        #     # self.model = DetrForSceneGraphGeneration(config=config, fg_matrix=fg_matrix)
-        #     # self.model.model.backbone.load_state_dict(
-        #     #     torch.load(f"{backbone_dirpath}/{config.backbone}.pt")
-        #     # )
-        #     self.net.model.backbone.load_state_dict(
-        #         torch.load(f"{self.net.backbone_dirpath}/{self.net.backbone}.pt")
-        #     )
-        #     self.initialized_keys = []
-        # else:
-        #     self.model, load_info = DetrForSceneGraphGeneration.from_pretrained(
-        #         pretrained,
-        #         config=config,
-        #         ignore_mismatched_sizes=True,
-        #         output_loading_info=True,
-        #         fg_matrix=fg_matrix,
-        #     )
-        #     self.initialized_keys = load_info["missing_keys"] + [
-        #         _key for _key, _, _ in load_info["mismatched_keys"]
-        #     ]
-
-        # if main_trained:
+        # if self.config.main_trained:
         #     state_dict = torch.load(main_trained, map_location="cpu")["state_dict"]
         #     for k in list(state_dict.keys()):
         #         state_dict[k[6:]] = state_dict.pop(k)  # "model."
@@ -190,8 +193,8 @@ class EGTRLitModule(LightningModule):
         # loss = self.criterion(logits, y) 
         # preds = torch.argmax(logits, dim=1)
         # return loss, preds, y
-        outputs = self.net(pixel_val, pixel_mask, labels = y, output_attentions=False, output_attention_states=True, output_hidden_states=True)
-        import IPython; IPython.embed()
+        outputs = self.net(pixel_val, pixel_mask, labels=y, output_attentions=False, output_attention_states=True, output_hidden_states=True)
+        # import IPython; IPython.embed()
         loss = outputs.loss
         loss_dict = outputs.loss_dict
         del outputs
@@ -222,7 +225,7 @@ class EGTRLitModule(LightningModule):
         loss, loss_dict = self.model_step(batch)
         # logs metrics for each training_step,
         # and the average across the epoch
-        import IPython; IPython.embed()
+        # import IPython; IPython.embed()
         log_dict = {
             "step": torch.tensor(self.global_step, dtype=torch.float32),
             "training_loss": loss.item(),

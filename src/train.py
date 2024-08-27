@@ -74,9 +74,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     rel_categories = train_dataset.rel_categories
 
     # update model config
-    cfg.model.net.id2label = id2label
-    cfg.model.net.rel_categories = rel_categories
-    cfg.model.net.fg_matrix = fg_matrix_json
+    cfg.model.config_params.id2label = id2label
+    cfg.model.config_params.rel_categories = rel_categories
+    cfg.model.config_params.fg_matrix = fg_matrix_json
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
