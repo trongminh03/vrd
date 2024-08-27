@@ -23,7 +23,9 @@ import os
 def load_cuda_kernels():
     from torch.utils.cpp_extension import load
 
-    root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "custom_kernel")
+    root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../models/custom_kernel")
+    if (not os.path.exists(root)):
+        print("path is not exist")
     print(root)
     src_files = [
         os.path.join(root, filename)
@@ -41,7 +43,7 @@ def load_cuda_kernels():
         with_cuda=True,
         extra_include_paths=[root],
         build_directory=os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "custom_kernel"
+            os.path.dirname(os.path.realpath(__file__)), "../models/custom_kernel"
         ),
         extra_cflags=["-DWITH_CUDA=1"],
         extra_cuda_cflags=[

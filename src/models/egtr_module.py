@@ -101,8 +101,15 @@ class EGTRLitModule(LightningModule):
             )
             self.initialized_keys = []
         else: 
-            net = net(config=self.config)
-            self.net, load_info = net.from_pretrained(
+            # net = net(config=self.config)
+            # self.net, load_info = net.from_pretrained(
+            #     self.config.pretrained,
+            #     config=self.config,
+            #     ignore_mismatched_sizes=True,
+            #     output_loading_info=True,
+            #     fg_matrix=fg_matrix,
+            # )
+            self.net, load_info = DetrForSceneGraphGeneration.from_pretrained(
                 self.config.pretrained,
                 config=self.config,
                 ignore_mismatched_sizes=True,
@@ -114,7 +121,7 @@ class EGTRLitModule(LightningModule):
                 _key for _key, _, _ in load_info["mismatched_keys"]
             ]
 
-        # if main_trained:
+        # if self.config.main_trained:
         #     state_dict = torch.load(main_trained, map_location="cpu")["state_dict"]
         #     for k in list(state_dict.keys()):
         #         state_dict[k[6:]] = state_dict.pop(k)  # "model."
@@ -186,7 +193,7 @@ class EGTRLitModule(LightningModule):
         # loss = self.criterion(logits, y) 
         # preds = torch.argmax(logits, dim=1)
         # return loss, preds, y
-        outputs = self.net(pixel_val, pixel_mask, labels = y, output_attentions=False, output_attention_states=True, output_hidden_states=True)
+        outputs = self.net(pixel_val, pixel_mask, labels=y, output_attentions=False, output_attention_states=True, output_hidden_states=True)
         # import IPython; IPython.embed()
         loss = outputs.loss
         loss_dict = outputs.loss_dict
