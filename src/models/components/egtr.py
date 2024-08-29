@@ -475,126 +475,128 @@ class DetrForSceneGraphGeneration(DeformableDetrPreTrainedModel):
         del relation_source
 
         loss, loss_dict, auxiliary_outputs = None, None, None
-        if labels is not None:
-            # First: create the matcher
-            matcher = DeformableDetrHungarianMatcher(
-                class_cost=self.config.ce_loss_coefficient,
-                bbox_cost=self.config.bbox_cost,
-                giou_cost=self.config.giou_cost,
-                smoothing=self.config.smoothing,
-            )  # the same as loss coefficients
-            # Second: create the criterion
-            losses = ["labels", "boxes", "relations", "cardinality", "uncertainty"]
-            criterion = SceneGraphGenerationLoss(
-                matcher=matcher,
-                num_object_queries=num_object_queries,
-                num_classes=self.config.num_labels,
-                num_rel_labels=self.config.num_rel_labels,
-                eos_coef=self.config.eos_coefficient,
-                losses=losses,
-                smoothing=self.config.smoothing,
-                rel_sample_negatives=self.config.rel_sample_negatives,
-                rel_sample_nonmatching=self.config.rel_sample_nonmatching,
-                model_training=self.training,
-                focal_alpha=self.config.focal_alpha,
-                rel_sample_negatives_largest=self.config.rel_sample_negatives_largest,
-                rel_sample_nonmatching_largest=self.config.rel_sample_nonmatching_largest,
-            )
+        # if labels is not None:
+        #     # First: create the matcher
+        #     matcher = DeformableDetrHungarianMatcher(
+        #         class_cost=self.config.ce_loss_coefficient,
+        #         bbox_cost=self.config.bbox_cost,
+        #         giou_cost=self.config.giou_cost,
+        #         smoothing=self.config.smoothing,
+        #     )  # the same as loss coefficients
+        #     # Second: create the criterion
+        #     losses = ["labels", "boxes", "relations", "cardinality", "uncertainty"]
+        #     criterion = SceneGraphGenerationLoss(
+        #         matcher=matcher,
+        #         num_object_queries=num_object_queries,
+        #         num_classes=self.config.num_labels,
+        #         num_rel_labels=self.config.num_rel_labels,
+        #         eos_coef=self.config.eos_coefficient,
+        #         losses=losses,
+        #         smoothing=self.config.smoothing,
+        #         rel_sample_negatives=self.config.rel_sample_negatives,
+        #         rel_sample_nonmatching=self.config.rel_sample_nonmatching,
+        #         model_training=self.training,
+        #         focal_alpha=self.config.focal_alpha,
+        #         rel_sample_negatives_largest=self.config.rel_sample_negatives_largest,
+        #         rel_sample_nonmatching_largest=self.config.rel_sample_nonmatching_largest,
+        #     )
 
-            criterion.to(self.device)
+        #     criterion.to(self.device)
 
             # Third: compute the losses, based on outputs and labels
-            outputs_loss = {}
-            outputs_loss["logits"] = logits
-            outputs_loss["pred_boxes"] = pred_boxes
-            outputs_loss["pred_rel"] = pred_rel
-            outputs_loss["pred_connectivity"] = pred_connectivity
+        outputs_loss = {}
+        outputs_loss["logits"] = logits
+        outputs_loss["pred_boxes"] = pred_boxes
+        outputs_loss["pred_rel"] = pred_rel
+        outputs_loss["pred_connectivity"] = pred_connectivity
 
-            if self.config.auxiliary_loss:
-                auxiliary_outputs = self._set_aux_loss(outputs_class, outputs_coord)
-                outputs_loss["auxiliary_outputs"] = auxiliary_outputs
+        if self.config.auxiliary_loss:
+            auxiliary_outputs = self._set_aux_loss(outputs_class, outputs_coord)
+            outputs_loss["auxiliary_outputs"] = auxiliary_outputs
 
-            if self.config.two_stage:
-                enc_outputs_coord = outputs.enc_outputs_coord_logits.sigmoid()
-                outputs_loss["enc_outputs"] = {
-                    "logits": outputs.enc_outputs_class,
-                    "pred_boxes": enc_outputs_coord,
-                }
-
-            loss_dict = criterion(outputs_loss, labels)
-
-            # Fourth: compute total loss, as a weighted sum of the various losses
-            weight_dict = {
-                "loss_ce": self.config.ce_loss_coefficient,
-                "loss_bbox": self.config.bbox_loss_coefficient,
+        if self.config.two_stage:
+            enc_outputs_coord = outputs.enc_outputs_coord_logits.sigmoid()
+            outputs_loss["enc_outputs"] = {
+                "logits": outputs.enc_outputs_class,
+                "pred_boxes": enc_outputs_coord,
             }
-            weight_dict["loss_giou"] = self.config.giou_loss_coefficient
-            weight_dict["loss_rel"] = self.config.rel_loss_coefficient
-            weight_dict["loss_connectivity"] = self.config.connectivity_loss_coefficient
-            aux_weight_dict = {}
-            if self.config.auxiliary_loss:
-                for i in range(self.config.decoder_layers - 1):
-                    aux_weight_dict.update(
-                        {f"{k}_{i}": v for k, v in weight_dict.items()}
-                    )
+        
+        return outputs_loss
 
-            two_stage_weight_dict = {}
-            if self.config.two_stage:
-                two_stage_weight_dict = {f"{k}_enc": v for k, v in weight_dict.items()}
-            weight_dict.update(aux_weight_dict)
-            weight_dict.update(two_stage_weight_dict)
+        #     loss_dict = criterion(outputs_loss, labels)
 
-            loss = sum(
-                loss_dict[k] * weight_dict[k]
-                for k in loss_dict.keys()
-                if k in weight_dict
-            )
+        #     # Fourth: compute total loss, as a weighted sum of the various losses
+        #     weight_dict = {
+        #         "loss_ce": self.config.ce_loss_coefficient,
+        #         "loss_bbox": self.config.bbox_loss_coefficient,
+        #     }
+        #     weight_dict["loss_giou"] = self.config.giou_loss_coefficient
+        #     weight_dict["loss_rel"] = self.config.rel_loss_coefficient
+        #     weight_dict["loss_connectivity"] = self.config.connectivity_loss_coefficient
+        #     aux_weight_dict = {}
+        #     if self.config.auxiliary_loss:
+        #         for i in range(self.config.decoder_layers - 1):
+        #             aux_weight_dict.update(
+        #                 {f"{k}_{i}": v for k, v in weight_dict.items()}
+        #             )
 
-            # rel_gate: [bsz, num_objects, num_objects, layer, 1]
-            rel_gate = rel_gate.reshape(
-                bsz * num_object_queries * num_object_queries, -1
-            ).mean(0)
-            log_layers = list(
-                range(self.config.decoder_layers + 1)
-            )  # include final layers
+        #     two_stage_weight_dict = {}
+        #     if self.config.two_stage:
+        #         two_stage_weight_dict = {f"{k}_enc": v for k, v in weight_dict.items()}
+        #     weight_dict.update(aux_weight_dict)
+        #     weight_dict.update(two_stage_weight_dict)
 
-            for i, v in zip(log_layers, rel_gate):
-                loss_dict[f"rel_gate_{i}"] = v
+        #     loss = sum(
+        #         loss_dict[k] * weight_dict[k]
+        #         for k in loss_dict.keys()
+        #         if k in weight_dict
+        #     )
 
-        # from <structured sparse rcnn>, post-hoc logit adjustment.
-        # reference: https://github.com/google-research/google-research/blob/master/logit_adjustment/main.py#L136-L140
-        if self.config.logit_adjustment:
-            pred_rel = pred_rel - self.config.logit_adj_tau * self.rel_dist.log().to(
-                pred_rel.device
-            )
+        #     # rel_gate: [bsz, num_objects, num_objects, layer, 1]
+        #     rel_gate = rel_gate.reshape(
+        #         bsz * num_object_queries * num_object_queries, -1
+        #     ).mean(0)
+        #     log_layers = list(
+        #         range(self.config.decoder_layers + 1)
+        #     )  # include final layers
 
-        # Apply sigmoid to logits
-        pred_rel = pred_rel.sigmoid()
-        pred_connectivity = pred_connectivity.sigmoid()
+        #     for i, v in zip(log_layers, rel_gate):
+        #         loss_dict[f"rel_gate_{i}"] = v
 
-        if not return_dict:
-            if auxiliary_outputs is not None:
-                output = (logits, pred_boxes) + auxiliary_outputs + outputs
-            else:
-                output = (logits, pred_boxes) + outputs
-            return ((loss, loss_dict) + output) if loss is not None else output
+        # # from <structured sparse rcnn>, post-hoc logit adjustment.
+        # # reference: https://github.com/google-research/google-research/blob/master/logit_adjustment/main.py#L136-L140
+        # if self.config.logit_adjustment:
+        #     pred_rel = pred_rel - self.config.logit_adj_tau * self.rel_dist.log().to(
+        #         pred_rel.device
+        #     )
 
-        return DetrSceneGraphGenerationOutput(
-            loss=loss,
-            loss_dict=loss_dict,
-            logits=logits,
-            pred_boxes=pred_boxes,
-            pred_rel=pred_rel,
-            pred_connectivity=pred_connectivity,
-            auxiliary_outputs=auxiliary_outputs,
-            last_hidden_state=outputs.last_hidden_state,
-            decoder_hidden_states=outputs.decoder_hidden_states,
-            decoder_attentions=outputs.decoder_attentions,
-            cross_attentions=outputs.cross_attentions,
-            encoder_last_hidden_state=outputs.encoder_last_hidden_state,
-            encoder_hidden_states=outputs.encoder_hidden_states,
-            encoder_attentions=outputs.encoder_attentions,
-        )
+        # # Apply sigmoid to logits
+        # pred_rel = pred_rel.sigmoid()
+        # pred_connectivity = pred_connectivity.sigmoid()
+
+        # if not return_dict:
+        #     if auxiliary_outputs is not None:
+        #         output = (logits, pred_boxes) + auxiliary_outputs + outputs
+        #     else:
+        #         output = (logits, pred_boxes) + outputs
+        #     return ((loss, loss_dict) + output) if loss is not None else output
+
+        # return DetrSceneGraphGenerationOutput(
+        #     loss=loss,
+        #     loss_dict=loss_dict,
+        #     logits=logits,
+        #     pred_boxes=pred_boxes,
+        #     pred_rel=pred_rel,
+        #     pred_connectivity=pred_connectivity,
+        #     auxiliary_outputs=auxiliary_outputs,
+        #     last_hidden_state=outputs.last_hidden_state,
+        #     decoder_hidden_states=outputs.decoder_hidden_states,
+        #     decoder_attentions=outputs.decoder_attentions,
+        #     cross_attentions=outputs.cross_attentions,
+        #     encoder_last_hidden_state=outputs.encoder_last_hidden_state,
+        #     encoder_hidden_states=outputs.encoder_hidden_states,
+        #     encoder_attentions=outputs.encoder_attentions,
+        # )
 
 
 # taken from https://github.com/facebookresearch/detr/blob/master/models/detr.py

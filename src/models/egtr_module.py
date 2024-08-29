@@ -13,8 +13,9 @@ from src.models.components.deformable_detr import (
     DeformableDetrConfig,
     DeformableDetrFeatureExtractor,
     DeformableDetrFeatureExtractorWithAugmentorNoCrop,
+    DeformableDetrHungarianMatcher,
 )
-from src.models.components.egtr import DetrForSceneGraphGeneration
+from src.models.components.egtr import DetrForSceneGraphGeneration, SceneGraphGenerationLoss
 
 class EGTRLitModule(LightningModule):
     """Example of a `LightningModule` for MNIST classification.
@@ -120,7 +121,8 @@ class EGTRLitModule(LightningModule):
             self.initialized_keys = load_info["missing_keys"] + [
                 _key for _key, _, _ in load_info["mismatched_keys"]
             ]
-
+        
+        import IPython; IPython.embed()
         # if self.config.main_trained:
         #     state_dict = torch.load(main_trained, map_location="cpu")["state_dict"]
         #     for k in list(state_dict.keys()):
@@ -135,7 +137,29 @@ class EGTRLitModule(LightningModule):
         # self.feature_extractor = feature_extractor
 
         # loss function
-        self.criterion = torch.nn.CrossEntropyLoss()
+        # self.criterion = torch.nn.CrossEntropyLoss()
+        matcher = DeformableDetrHungarianMatcher(
+            class_cost=self.config.ce_loss_coefficient,
+            bbox_cost=self.config.bbox_cost,
+            giou_cost=self.config.giou_cost,
+            smoothing=self.config.smoothing,
+        )
+        losses = ["labels", "boxes", "relations", "cardinality", "uncertainty"]
+        self.criterion = SceneGraphGenerationLoss(
+            matcher=matcher,
+            num_object_queries=self.config.num_object_queries,
+            num_classes=self.config.num_labels,
+            num_rel_labels=self.config.num_rel_labels,
+            eos_coef=self.config.eos_coefficient,
+            losses=losses,
+            smoothing=self.config.smoothing,
+            rel_sample_negatives=self.config.rel_sample_negatives,
+            rel_sample_nonmatching=self.config.rel_sample_nonmatching,
+            model_training=True,
+            focal_alpha=self.config.focal_alpha,
+            rel_sample_negatives_largest=self.config.rel_sample_negatives_largest,
+            rel_sample_nonmatching_largest=self.config.rel_sample_nonmatching_largest,
+        )
 
         # metric objects for calculating and averaging accuracy across batches
         self.train_acc = Accuracy(task="multiclass", num_classes=num_classes)
