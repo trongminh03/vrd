@@ -1,6 +1,8 @@
 # Use the NVIDIA CUDA image as the base image
 FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu20.04
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install base utilities
 RUN apt-get update \
   && apt-get install ffmpeg libsm6 libxext6 -y wget \
@@ -21,7 +23,7 @@ RUN conda init
 # Create and activate the conda environment
 # RUN conda create -n vrd python=3.9
 
-# COPY requirements.txt .
+COPY requirements.txt .
 RUN conda create -n vrd python=3.9 && \
     /bin/bash -c "source activate vrd && pip install -r requirements.txt"
 

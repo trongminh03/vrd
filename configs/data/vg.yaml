@@ -1,7 +1,7 @@
 _target_: src.data.vg_datamodule.VG_DataModule
 data_folder: '/data/hpc/trongminh/visual_genome'
 split: 'train'
-num_object_queries: 100
+num_object_queries: 200
 debug: False
 batch_size: 4
 pin_memory: True

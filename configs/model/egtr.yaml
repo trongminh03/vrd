@@ -3,6 +3,8 @@ _target_: src.models.egtr_module.EGTRLitModule
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
+  # param_dicts: 
+  #   _partial_: true
   lr: 2e-6
   weight_decay: 1e-4
 
@@ -13,7 +15,7 @@ scheduler:
   factor: 0.1
   patience: 10
 
-from_scratch: False # Placeholder only, use when running command !!!! (+model.from_scratch=False)
+from_scratch: false # Placeholder only, use when running command !!!! (+model.from_scratch=False)
 
 net:
   _target_: src.models.components.egtr.DetrForSceneGraphGeneration
@@ -25,26 +27,25 @@ config_params:
   auxiliary_loss: False
   pretrained: "/work/hpc/trongminh/vrd/detection_models/pretrained_detr__SenseTime__deformable-detr/batch__32__epochs__150_50__lr__1e-05_0.0001__visual_genome__finetune/version_0"
   main_trained: ""
-  from_scratch: False
   id2label: 
-    _partial_: True
+    _partial_: true
   rel_loss_coefficient: 15.0
   smoothing: 1e-14
   rel_sample_negatives: 80
   rel_sample_nonmatching: 80
   rel_categories: 
-    _partial_: True
+    _partial_: true
   num_queries: 200
   ce_loss_coefficient: 2.0
-  rel_sample_negatives_largest: True
-  rel_sample_nonmatching_largest: True
-  use_freq_bias: True
+  rel_sample_negatives_largest: true
+  rel_sample_nonmatching_largest: true
+  use_freq_bias: true
   fg_matrix:
-    _partial_: True
-  use_log_softmax: False
+    _partial_: true
+  use_log_softmax: false
   freq_bias_eps: 1e-12
   connectivity_loss_coefficient: 30.0
-  logit_adjustment: False
+  logit_adjustment: false
   logit_adj_tau: 0.3
 
 # compile model for faster training with pytorch 2.0

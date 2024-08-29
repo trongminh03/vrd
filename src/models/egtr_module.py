@@ -101,21 +101,21 @@ class EGTRLitModule(LightningModule):
             )
             self.initialized_keys = []
         else: 
-            # net = net(config=self.config)
-            # self.net, load_info = net.from_pretrained(
-            #     self.config.pretrained,
-            #     config=self.config,
-            #     ignore_mismatched_sizes=True,
-            #     output_loading_info=True,
-            #     fg_matrix=fg_matrix,
-            # )
-            self.net, load_info = DetrForSceneGraphGeneration.from_pretrained(
+            net = net(config=self.config)
+            self.net, load_info = net.from_pretrained(
                 self.config.pretrained,
                 config=self.config,
                 ignore_mismatched_sizes=True,
                 output_loading_info=True,
                 fg_matrix=fg_matrix,
             )
+            # self.net, load_info = DetrForSceneGraphGeneration.from_pretrained(
+            #     self.config.pretrained,
+            #     config=self.config,
+            #     ignore_mismatched_sizes=True,
+            #     output_loading_info=True,
+            #     fg_matrix=fg_matrix,
+            # )
 
             self.initialized_keys = load_info["missing_keys"] + [
                 _key for _key, _, _ in load_info["mismatched_keys"]
@@ -225,7 +225,6 @@ class EGTRLitModule(LightningModule):
         loss, loss_dict = self.model_step(batch)
         # logs metrics for each training_step,
         # and the average across the epoch
-        # import IPython; IPython.embed()
         log_dict = {
             "step": torch.tensor(self.global_step, dtype=torch.float32),
             "training_loss": loss.item(),

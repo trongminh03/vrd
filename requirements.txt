@@ -28,3 +28,4 @@ pycocotools==2.0.5
 ipython
 numpy==1.26.4
 timm
+pyrootutils
