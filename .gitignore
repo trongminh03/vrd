@@ -153,8 +153,9 @@ configs/local/default.yaml
 # Aim logging
 .aim
 
-# Detection model
+# ckpt
 detection_models/
+ckpt/
 
 # notebooks
 notebooks/

@@ -391,74 +391,94 @@ class DeformableDetrFeatureExtractorWithAugmentorNoCrop(DeformableDetrFeatureExt
 
 
 # Move this to not compile only when importing, this needs to happen later, like in __init__.
-if is_torch_cuda_available() and is_ninja_available():
-    logger.info("Loading custom CUDA kernels...")
-    try:
-        MultiScaleDeformableAttention = load_cuda_kernels()
-    except Exception as e:
-        logger.warning(
-            f"Could not load the custom kernel for multi-scale deformable attention: {e}"
-        )
-        MultiScaleDeformableAttention = None
-else:
-    MultiScaleDeformableAttention = None
+# if is_torch_cuda_available() and is_ninja_available():
+#     logger.info("Loading custom CUDA kernels...")
+#     try:
+#         MultiScaleDeformableAttention = load_cuda_kernels()
+#     except Exception as e:
+#         logger.warning(
+#             f"Could not load the custom kernel for multi-scale deformable attention: {e}"
+#         )
+#         MultiScaleDeformableAttention = None
+# else:
+#     MultiScaleDeformableAttention = None
 
 
-class MultiScaleDeformableAttentionFunction(Function):
+# class MultiScaleDeformableAttentionFunction(Function):
+#     @staticmethod
+#     def forward(
+#         context,
+#         value,
+#         value_spatial_shapes,
+#         value_level_start_index,
+#         sampling_locations,
+#         attention_weights,
+#         im2col_step,
+#     ):
+#         context.im2col_step = im2col_step
+#         output = MultiScaleDeformableAttention.ms_deform_attn_forward(
+#             value,
+#             value_spatial_shapes,
+#             value_level_start_index,
+#             sampling_locations,
+#             attention_weights,
+#             context.im2col_step,
+#         )
+#         context.save_for_backward(
+#             value,
+#             value_spatial_shapes,
+#             value_level_start_index,
+#             sampling_locations,
+#             attention_weights,
+#         )
+#         return output
+
+#     @staticmethod
+#     @once_differentiable
+#     def backward(context, grad_output):
+#         (
+#             value,
+#             value_spatial_shapes,
+#             value_level_start_index,
+#             sampling_locations,
+#             attention_weights,
+#         ) = context.saved_tensors
+#         (
+#             grad_value,
+#             grad_sampling_loc,
+#             grad_attn_weight,
+#         ) = MultiScaleDeformableAttention.ms_deform_attn_backward(
+#             value,
+#             value_spatial_shapes,
+#             value_level_start_index,
+#             sampling_locations,
+#             attention_weights,
+#             grad_output,
+#             context.im2col_step,
+#         )
+
+#         return grad_value, None, None, grad_sampling_loc, grad_attn_weight, None 
+
+import MultiScaleDeformableAttention as MSDA
+
+class MSDeformAttnFunction(Function):
     @staticmethod
-    def forward(
-        context,
-        value,
-        value_spatial_shapes,
-        value_level_start_index,
-        sampling_locations,
-        attention_weights,
-        im2col_step,
-    ):
-        context.im2col_step = im2col_step
-        output = MultiScaleDeformableAttention.ms_deform_attn_forward(
-            value,
-            value_spatial_shapes,
-            value_level_start_index,
-            sampling_locations,
-            attention_weights,
-            context.im2col_step,
-        )
-        context.save_for_backward(
-            value,
-            value_spatial_shapes,
-            value_level_start_index,
-            sampling_locations,
-            attention_weights,
-        )
+    def forward(ctx, value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights, im2col_step):
+        ctx.im2col_step = im2col_step
+        output = MSDA.ms_deform_attn_forward(
+            value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights, ctx.im2col_step)
+        ctx.save_for_backward(value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights)
         return output
 
     @staticmethod
     @once_differentiable
-    def backward(context, grad_output):
-        (
-            value,
-            value_spatial_shapes,
-            value_level_start_index,
-            sampling_locations,
-            attention_weights,
-        ) = context.saved_tensors
-        (
-            grad_value,
-            grad_sampling_loc,
-            grad_attn_weight,
-        ) = MultiScaleDeformableAttention.ms_deform_attn_backward(
-            value,
-            value_spatial_shapes,
-            value_level_start_index,
-            sampling_locations,
-            attention_weights,
-            grad_output,
-            context.im2col_step,
-        )
+    def backward(ctx, grad_output):
+        value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights = ctx.saved_tensors
+        grad_value, grad_sampling_loc, grad_attn_weight = \
+            MSDA.ms_deform_attn_backward(
+                value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights, grad_output, ctx.im2col_step)
 
         return grad_value, None, None, grad_sampling_loc, grad_attn_weight, None
-
 
 if is_scipy_available():
     from scipy.optimize import linear_sum_assignment
@@ -1090,14 +1110,18 @@ class DeformableDetrMultiscaleDeformableAttention(nn.Module):
             )
         try:
             # GPU
-            output = MultiScaleDeformableAttentionFunction.apply(
-                value,
-                spatial_shapes,
-                level_start_index,
-                sampling_locations,
-                attention_weights,
-                self.im2col_step,
+            # output = MultiScaleDeformableAttentionFunction.apply(
+            #     value,
+            #     spatial_shapes,
+            #     level_start_index,
+            #     sampling_locations,
+            #     attention_weights,
+            #     self.im2col_step,
+            # )
+            output = MSDeformAttnFunction.apply(
+                value, spatial_shapes, level_start_index, sampling_locations, attention_weights, self.im2col_step
             )
+            
         except Exception as E:
             print("it is running on cpu!", E)
             # cpu
