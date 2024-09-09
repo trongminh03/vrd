@@ -3,6 +3,6 @@ data_folder: '/data/hpc/trongminh/visual_genome'
 split: 'train'
 num_object_queries: 200
 debug: False
-batch_size: 4
+batch_size: 2
 pin_memory: True
 num_workers: 4

@@ -3,17 +3,18 @@ _target_: src.models.egtr_module.EGTRLitModule
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
-  # param_dicts: 
-  #   _partial_: true
   lr: 2e-6
   weight_decay: 1e-4
 
-scheduler:
-  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-  _partial_: true
-  mode: min
-  factor: 0.1
-  patience: 10
+lr_backbone: 2e-7
+lr_initialized: 2e-4 # for pretrained
+
+# scheduler:
+#   _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+#   _partial_: true
+#   mode: min
+#   factor: 0.1
+#   patience: 10
 
 from_scratch: false # Placeholder only, use when running command !!!! (+model.from_scratch=False)
 

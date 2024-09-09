@@ -45,6 +45,7 @@ class VG_Dataset(VG_Detection):
         with open(f"{data_folder}/rel.json", "r") as f:
             rel = json.load(f)
         self.rel = rel[split]
+        # self.ids = self.ids[:50] # for debugging
         self.rel_categories = rel["rel_categories"][1:]  # remove 'no_relation' category
         self.num_object_queries = num_object_queries
 

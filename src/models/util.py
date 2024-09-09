@@ -12,8 +12,11 @@ def collate_fn(batch, feature_extractor):
 
 from typing import List, Optional
 
+from src.utils.box_ops import rescale_bboxes
+from src.utils.pytorch_misc import argsort_desc
 import torch
 from torch import Tensor, nn
+import numpy as np 
 
 
 def dice_loss(inputs, targets, num_boxes):
@@ -183,3 +186,136 @@ def nested_tensor_from_tensor_list(tensor_list: List[Tensor]):
     else:
         raise ValueError("Only 3-dimensional tensors are supported")
     return NestedTensor(tensor, mask)
+
+
+def evaluate_batch(
+    outputs,
+    targets,
+    multiple_sgg_evaluator,
+    multiple_sgg_evaluator_list,
+    single_sgg_evaluator,
+    single_sgg_evaluator_list,
+    oi_evaluator,
+    num_labels,
+    max_topk=100,
+):
+    for j, target in enumerate(targets):
+        # Pred
+        pred_logits = outputs["logits"][j]
+        obj_scores, pred_classes = torch.max(
+            pred_logits.softmax(-1)[:, :num_labels], -1
+        )
+        sub_ob_scores = torch.outer(obj_scores, obj_scores)
+        sub_ob_scores[
+            torch.arange(pred_logits.size(0)), torch.arange(pred_logits.size(0))
+        ] = 0.0  # prevent self-connection
+
+        pred_boxes = outputs["pred_boxes"][j]
+        pred_rel = torch.clamp(outputs["pred_rel"][j], 0.0, 1.0)
+        if "pred_connectivity" in outputs:
+            pred_connectivity = torch.clamp(outputs["pred_connectivity"][j], 0.0, 1.0)
+            pred_rel = torch.mul(pred_rel, pred_connectivity)
+
+        # GT
+        orig_size = target["orig_size"]
+        target_labels = target["class_labels"]  # [num_objs]
+        target_boxes = target["boxes"]  # [num_objs, 4]
+        target_rel = target["rel"].nonzero()  # [num_rels, 3(s, o, p)]
+
+        gt_entry = {
+            "gt_relations": target_rel.clone().numpy(),
+            "gt_boxes": rescale_bboxes(target_boxes, torch.flip(orig_size, dims=[0]))
+            .clone()
+            .numpy(),
+            "gt_classes": target_labels.clone().numpy(),
+        }
+
+        if multiple_sgg_evaluator is not None:
+            triplet_scores = torch.mul(pred_rel, sub_ob_scores.unsqueeze(-1))
+            pred_rel_inds = argsort_desc(triplet_scores.cpu().clone().numpy())[
+                :max_topk, :
+            ]  # [pred_rels, 3(s,o,p)]
+            rel_scores = (
+                pred_rel.cpu()
+                .clone()
+                .numpy()[pred_rel_inds[:, 0], pred_rel_inds[:, 1], pred_rel_inds[:, 2]]
+            )  # [pred_rels]
+
+            pred_entry = {
+                "pred_boxes": rescale_bboxes(
+                    pred_boxes.cpu(), torch.flip(orig_size, dims=[0])
+                )
+                .clone()
+                .numpy(),
+                "pred_classes": pred_classes.cpu().clone().numpy(),
+                "obj_scores": obj_scores.cpu().clone().numpy(),
+                "pred_rel_inds": pred_rel_inds,
+                "rel_scores": rel_scores,
+            }
+            multiple_sgg_evaluator["sgdet"].evaluate_scene_graph_entry(
+                gt_entry, pred_entry
+            )
+
+            for pred_id, _, evaluator_rel in multiple_sgg_evaluator_list:
+                gt_entry_rel = gt_entry.copy()
+                mask = np.in1d(gt_entry_rel["gt_relations"][:, -1], pred_id)
+                gt_entry_rel["gt_relations"] = gt_entry_rel["gt_relations"][mask, :]
+                if gt_entry_rel["gt_relations"].shape[0] == 0:
+                    continue
+                evaluator_rel["sgdet"].evaluate_scene_graph_entry(
+                    gt_entry_rel, pred_entry
+                )
+
+        if single_sgg_evaluator is not None:
+            triplet_scores = torch.mul(pred_rel.max(-1)[0], sub_ob_scores)
+            pred_rel_inds = argsort_desc(triplet_scores.cpu().clone().numpy())[
+                :max_topk, :
+            ]  # [pred_rels, 2(s,o)]
+            rel_scores = (
+                pred_rel.cpu().clone().numpy()[pred_rel_inds[:, 0], pred_rel_inds[:, 1]]
+            )  # [pred_rels, 50]
+
+            pred_entry = {
+                "pred_boxes": rescale_bboxes(
+                    pred_boxes.cpu(), torch.flip(orig_size, dims=[0])
+                )
+                .clone()
+                .numpy(),
+                "pred_classes": pred_classes.cpu().clone().numpy(),
+                "obj_scores": obj_scores.cpu().clone().numpy(),
+                "pred_rel_inds": pred_rel_inds,
+                "rel_scores": rel_scores,
+            }
+            single_sgg_evaluator["sgdet"].evaluate_scene_graph_entry(
+                gt_entry, pred_entry
+            )
+            for pred_id, _, evaluator_rel in single_sgg_evaluator_list:
+                gt_entry_rel = gt_entry.copy()
+                mask = np.in1d(gt_entry_rel["gt_relations"][:, -1], pred_id)
+                gt_entry_rel["gt_relations"] = gt_entry_rel["gt_relations"][mask, :]
+                if gt_entry_rel["gt_relations"].shape[0] == 0:
+                    continue
+                evaluator_rel["sgdet"].evaluate_scene_graph_entry(
+                    gt_entry_rel, pred_entry
+                )
+
+        if oi_evaluator is not None:  # OI evaluation, return all possible indicies
+            sbj_obj_inds = torch.cartesian_prod(
+                torch.arange(pred_logits.shape[0]), torch.arange(pred_logits.shape[0])
+            )
+            pred_scores = (
+                pred_rel.cpu().clone().numpy().reshape(-1, pred_rel.size(-1))
+            )  # (num_obj * num_obj, num_rel_classes)
+
+            pred_entry = {
+                "pred_boxes": rescale_bboxes(
+                    pred_boxes.cpu(), torch.flip(orig_size, dims=[0])
+                )
+                .clone()
+                .numpy(),
+                "pred_classes": pred_classes.cpu().clone().numpy(),
+                "obj_scores": obj_scores.cpu().clone().numpy(),
+                "sbj_obj_inds": sbj_obj_inds,  # for oi, (num_obj * num_obj, num_rel_classes)
+                "pred_scores": pred_scores,  # for oi, (num_obj * num_obj, num_rel_classes)
+            }
+            oi_evaluator(gt_entry, pred_entry)
