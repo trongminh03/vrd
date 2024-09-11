@@ -104,7 +104,7 @@ class VG_DataModule(LightningDataModule):
             self.test_dataset = VG_Dataset(
                 data_folder=self.data_folder,
                 feature_extractor=self.feature_extractor,
-                split=self.split,
+                split="test",
                 num_object_queries=self.num_object_queries,
             )
             self.train_dataloader_object = DataLoader(

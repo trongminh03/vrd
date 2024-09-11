@@ -5,6 +5,7 @@ import rootutils
 from lightning import LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig
+import json
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 # ------------------------------------------------------------------------------------ #
@@ -24,6 +25,7 @@ rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 # more info: https://github.com/ashleve/rootutils
 # ------------------------------------------------------------------------------------ #
 
+from src.data.components.vg_dataset import vg_get_statistics
 from src.utils import (
     RankedLogger,
     extras,
@@ -49,6 +51,21 @@ def evaluate(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
+
+    # config model param
+    train_dataset = datamodule.train_dataset
+    cats = train_dataset.coco.cats
+    id2label = {k - 1: v["name"] for k, v in cats.items()}
+    
+    fg_matrix = vg_get_statistics(train_dataset, must_overlap=True)
+    fg_matrix_json = json.dumps(fg_matrix.tolist())
+    
+    rel_categories = train_dataset.rel_categories
+
+    # update model config
+    cfg.model.config_params.id2label = id2label
+    cfg.model.config_params.rel_categories = rel_categories
+    cfg.model.config_params.fg_matrix = fg_matrix_json
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)

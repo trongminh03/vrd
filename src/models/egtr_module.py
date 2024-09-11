@@ -62,15 +62,6 @@ class EGTRLitModule(LightningModule):
         from_scratch: bool, 
         log_print=False,
         config_params=None,
-        # id2label,
-        # rel_categories,
-        # multiple_sgg_evaluator,
-        # multiple_sgg_evaluator_list,
-        # single_sgg_evaluator,
-        # single_sgg_evaluator_list,
-        # coco_evaluator,
-        # feature_extractor,
-        # fg_matrix,
         num_classes=150
     ) -> None:
         """Initialize a `EGTRLitModule`.
@@ -126,12 +117,14 @@ class EGTRLitModule(LightningModule):
             self.initialized_keys = load_info["missing_keys"] + [
                 _key for _key, _, _ in load_info["mismatched_keys"]
             ]
-
-        # if self.config.main_trained:
-        #     state_dict = torch.load(main_trained, map_location="cpu")["state_dict"]
+    
+        # if ckpt_path is not None:
+        #     state_dict = torch.load(ckpt_path, map_location="cpu")["state_dict"]
         #     for k in list(state_dict.keys()):
         #         state_dict[k[6:]] = state_dict.pop(k)  # "model."
-        #     self.model.load_state_dict(state_dict, strict=False)
+
+        #     import IPython; IPython.embed()
+        #     self.net.load_state_dict(state_dict, strict=False)
 
         # self.multiple_sgg_evaluator = multiple_sgg_evaluator 
         # self.multiple_sgg_evaluator_list = multiple_sgg_evaluator_list 

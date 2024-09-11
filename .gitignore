@@ -159,3 +159,6 @@ ckpt/
 
 # notebooks
 notebooks/
+
+# test
+tests/imgs
